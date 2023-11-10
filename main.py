@@ -17,6 +17,7 @@ from predict.image.setup import setup as image_setup
 from predict.voiceover.setup import setup as voiceover_setup
 from rdqueue.worker import start_redis_queue_worker
 from rabbitmq_consumer.worker import start_amqp_queue_worker
+from rabbitmq_consumer.connection import RabbitMQConnection
 from upload.constants import (
     S3_ACCESS_KEY_ID,
     S3_BUCKET_NAME_UPLOAD,
@@ -101,20 +102,28 @@ if __name__ == "__main__":
             )
         )
     # Create rabbitmq connection
-    # Parse the AMQP URL
-    params = pika.URLParameters(amqpUrl)
+    connection = RabbitMQConnection(amqpUrl)
 
-    # Establish the connection using the parsed parameters
-    connection = pika.BlockingConnection(params)
-    channel = connection.channel()
+    # Setup signal handler for exit
+    def signal_handler(signum, frame):
+        if not shutdown_event.is_set():
+            print("Signal received, shutting down...")
+            shutdown_event.set()
+            connection.stop_consuming()
+            connection.close()
+            connection.connection.close()
+            if redis_worker_thread: os.kill(redis_worker_thread.ident, signal.SIGTERM)
+            os.kill(upload_thread.ident, signal.SIGTERM)
 
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Create rabbitmq worker thread
     mq_worker_thread = Thread(
         name="RabbitMQ Thread",
         target=lambda: start_amqp_queue_worker(
             worker_type=WORKER_TYPE,
-            channel=channel,
+            connection=connection,
             queue_name=amqpQueueName,
             upload_queue=upload_queue,
             models_pack=models_pack,
@@ -134,19 +143,6 @@ if __name__ == "__main__":
         )
     )
 
-    # Setup signal handler for exit
-    def signal_handler(signum, frame):
-        if not shutdown_event.is_set():
-            print("Signal received, shutting down...")
-            shutdown_event.set()
-            channel.stop_consuming()
-            channel.close()
-            channel.connection.close()
-            if redis_worker_thread: os.kill(redis_worker_thread.ident, signal.SIGTERM)
-            os.kill(upload_thread.ident, signal.SIGTERM)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
 
     try:
         mq_worker_thread.start()
