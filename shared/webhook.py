@@ -9,6 +9,7 @@ MAX_RETRIES = 3
 
 def post_webhook(url: str, data: Dict[str, Any], retries: int = 0) -> int:
     """Retry a POST request to a webhook URL, return status code"""
+    print(f"Posting webhook to {url}")
     ret = requests.post(
         url, json=data, headers={"signature": os.environ.get("WEBHOOK_SIGNATURE")}
     )

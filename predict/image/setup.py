@@ -141,7 +141,12 @@ def setup() -> ModelsPack:
         s = time.time()
         print(f"⏳ Loading SD model: {key}")
 
-        if key == "SDXL" or key == "Waifu Diffusion XL" or key == "SSD 1B":
+        if (
+            key == "SDXL"
+            or key == "Waifu Diffusion XL"
+            or key == "SSD 1B"
+            or key == "BC8 Alpha"
+        ):
             refiner_vae = AutoencoderKL.from_pretrained(
                 "stabilityai/sdxl-vae",
                 torch_dtype=torch.float16,
@@ -156,15 +161,28 @@ def setup() -> ModelsPack:
             else:
                 vae = refiner_vae
 
-            text2img = StableDiffusionXLPipeline.from_pretrained(
-                SD_MODELS[key]["id"],
-                torch_dtype=SD_MODELS[key]["torch_dtype"],
-                cache_dir=SD_MODEL_CACHE,
-                variant=SD_MODELS[key]["variant"],
-                use_safetensors=True,
-                vae=vae,
-                add_watermarker=False,
-            )
+            if key == "BC8 Alpha":
+                print("⏳ Loading BC8 Alpha from single file")
+                text2img = StableDiffusionXLPipeline.from_single_file(
+                    pretrained_model_link_or_path=SD_MODELS[key]["id"],
+                    torch_dtype=SD_MODELS[key]["torch_dtype"],
+                    cache_dir=SD_MODEL_CACHE,
+                    variant=SD_MODELS[key]["variant"],
+                    use_safetensors=True,
+                    # vae=vae, # Not sure if we want to use this or keep the default vae.
+                    add_watermarker=False,
+                )
+            else:
+                text2img = StableDiffusionXLPipeline.from_pretrained(
+                    SD_MODELS[key]["id"],
+                    torch_dtype=SD_MODELS[key]["torch_dtype"],
+                    cache_dir=SD_MODEL_CACHE,
+                    variant=SD_MODELS[key]["variant"],
+                    use_safetensors=True,
+                    vae=vae,
+                    add_watermarker=False,
+                )
+
             if "default_lora" in SD_MODELS[key]:
                 lora = SD_MODELS[key]["default_lora"]
                 text2img.load_lora_weights(

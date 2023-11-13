@@ -38,13 +38,15 @@ SD_ENV_KEY_TO_KEY = {
     "WDX": "Waifu Diffusion XL",
     "AD": "Arcane Diffusion",
     "SSD": "SSD 1B",
-    "IONET": "Io Cog"
+    "BC8-alpha": "BC8 Alpha"
 }
 SD_MODEL_CACHE = "/app/data/diffusers-cache"
 SD_MODELS_ALL = {
-    "IO Cog" : {
-        "id": "ionet-official/bc8-alpha",
-        "torch_dtype": torch.float32,
+    "BC8 Alpha" : {
+        "id": "https://huggingface.co/ionet-official/bc8-alpha/blob/main/bc8-alpha.safetensors",
+        "refiner_id": "stabilityai/stable-diffusion-xl-refiner-1.0",
+        "torch_dtype": torch.float16,
+        "variant": "fp16",
     },
     "Openjourney": {
         "id": "prompthero/openjourney",

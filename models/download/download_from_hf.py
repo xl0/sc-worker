@@ -40,6 +40,15 @@ def download_sd_model_from_hf(key):
             variant=SD_MODELS[key]["variant"],
             use_safetensors=True,
         )
+    elif key == "BC8 Alpha":
+        pipe = StableDiffusionXLPipeline.from_single_file(
+            SD_MODELS[key]["id"],
+            torch_dtype=SD_MODELS[key]["torch_dtype"],
+            cache_dir=SD_MODEL_CACHE,
+            variant=SD_MODELS[key]["variant"],
+            use_safetensors=True,
+        )
+
     else:
         pipe = StableDiffusionPipeline.from_pretrained(
             model_id,
