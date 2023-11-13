@@ -47,6 +47,7 @@ SD_MODELS_ALL = {
         "refiner_id": "stabilityai/stable-diffusion-xl-refiner-1.0",
         "torch_dtype": torch.float16,
         "variant": "fp16",
+        "negative_prompt_prefix": "nsfw",
     },
     "Openjourney": {
         "id": "prompthero/openjourney",
