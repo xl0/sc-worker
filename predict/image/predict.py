@@ -271,19 +271,17 @@ def predict(
             "pipe": generator_pipe,
         }
 
+        args["safety_checker"] = (
+            models_pack.safety_checker if not input.skip_safety_checker else None
+        )
+
         if input.model == KANDINSKY_MODEL_NAME:
             generate_output_images, generate_nsfw_count = generate_with_kandinsky(
-                **args,
-                safety_checker=None
-                if input.skip_safety_checker
-                else models_pack.safety_checker,
+                **args
             )
         elif input.model == KANDINKSY_2_2_MODEL_NAME:
             generate_output_images, generate_nsfw_count = generate_with_kandinsky_2_2(
-                **args,
-                safety_checker=None
-                if input.skip_safety_checker
-                else models_pack.safety_checker,
+                **args
             )
         else:
             generate_output_images, generate_nsfw_count = generate_with_sd(**args)

@@ -28,6 +28,7 @@ def generate(
     seed,
     model,
     pipe,
+    safety_checker,
 ):
     if seed is None:
         seed = int.from_bytes(os.urandom(2), "big")
@@ -122,6 +123,21 @@ def generate(
         pipe_selected = pipe_selected.to("cpu", silence_dtype_warnings=True)
         e = time.time()
         print_tuple(f"🐢 Moved {model} to CPU", f"{round((e - s) * 1000)} ms")
+
+
+    if model == "BC8 Alpha" and safety_checker is not None:
+        nsfw_content_detected = [ False ] * len(output.images)
+        output.nsfw_content_detected = nsfw_content_detected
+        for i, image in enumerate(output.images):
+            safety_checker_input = safety_checker["feature_extractor"](
+                images=image, return_tensors="pt"
+            ).to("cuda")
+            _, has_nsfw_concepts = safety_checker["checker"].forward(
+                clip_input=safety_checker_input.pixel_values.to(dtype=torch.float16), images=image
+            )
+            nsfw_content_detected[i] = has_nsfw_concepts
+
+        safety_checker["feature_extractor"]
 
     output_images = []
     nsfw_count = 0
