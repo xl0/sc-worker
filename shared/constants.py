@@ -5,3 +5,11 @@ SHOULD_LOAD_KANDINSKY_2_1 = os.environ.get("LOAD_KANDINSKY_2_1", "1")
 SHOULD_LOAD_KANDINSKY_2_2 = os.environ.get("LOAD_KANDINSKY_2_2", "1")
 SHOULD_LOAD_KANDINSKY_SAFETY_CHECKER = os.environ.get("LOAD_SAFETY_CHECKER", "0")
 SKIP_SAFETY_CHECKER = os.environ.get("SKIP_SAFETY_CHECKER", "1")
+
+LOAD_UPSCALER = os.environ.get("LOAD_UPSCALER", "1")
+LOAD_TRANSLATOR = os.environ.get("LOAD_TRANSLATOR", "1")
+LOAD_OPENCLIP = os.environ.get("LOAD_OPENCLIP", "1")
+
+LOAD_REFINER = os.environ.get("LOAD_REFINER", "1")
+LOAD_IMG2IMG= os.environ.get("LOAD_IMG2IMG", "1")
+LOAD_IMPAINTING = os.environ.get("LOAD_IMPAINTING", "1")

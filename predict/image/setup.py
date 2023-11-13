@@ -14,10 +14,16 @@ from shared.constants import (
     SHOULD_LOAD_KANDINSKY_SAFETY_CHECKER,
     SKIP_SAFETY_CHECKER,
     WORKER_VERSION,
+    LOAD_UPSCALER,
+    LOAD_TRANSLATOR,
+    LOAD_OPENCLIP,
+    LOAD_REFINER,
+    LOAD_IMG2IMG,
+    LOAD_IMPAINTING,
 )
 from models.stable_diffusion.constants import (
     SD_MODEL_FOR_SAFETY_CHECKER,
-    SD_MODELS,
+    SD_MODELS, SD_MODELS_ALL,
     SD_MODEL_CACHE,
 )
 from diffusers import StableDiffusionPipeline
@@ -163,12 +169,19 @@ def setup() -> ModelsPack:
 
             if key == "BC8 Alpha":
                 print("⏳ Loading BC8 Alpha from single file")
+                safety_pipe = StableDiffusionPipeline.from_pretrained(
+                    SD_MODELS_ALL[SD_MODEL_FOR_SAFETY_CHECKER]["id"],
+                    torch_dtype=SD_MODELS_ALL[key]["torch_dtype"],
+                    cache_dir=SD_MODEL_CACHE,
+                )
+
                 text2img = StableDiffusionXLPipeline.from_single_file(
                     pretrained_model_link_or_path=SD_MODELS[key]["id"],
                     torch_dtype=SD_MODELS[key]["torch_dtype"],
                     cache_dir=SD_MODEL_CACHE,
                     variant=SD_MODELS[key]["variant"],
                     use_safetensors=True,
+                    safety_checker=safety_pipe.safety_checker,
                     # vae=vae, # Not sure if we want to use this or keep the default vae.
                     add_watermarker=False,
                 )
@@ -190,15 +203,23 @@ def setup() -> ModelsPack:
                     weight_name=lora,
                 )
                 print(f"✅ Loaded LoRA weights: {lora}")
-            refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
-                SD_MODELS[key]["refiner_id"],
-                torch_dtype=SD_MODELS[key]["torch_dtype"],
-                cache_dir=SD_MODEL_CACHE,
-                variant=SD_MODELS[key]["variant"],
-                use_safetensors=True,
-                vae=refiner_vae,
-                add_watermarker=False,
-            )
+
+            if LOAD_REFINER != "0":
+                refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
+                    SD_MODELS[key]["refiner_id"],
+                    torch_dtype=SD_MODELS[key]["torch_dtype"],
+                    cache_dir=SD_MODEL_CACHE,
+                    variant=SD_MODELS[key]["variant"],
+                    use_safetensors=True,
+                    vae=refiner_vae,
+                    add_watermarker=False,
+                ).to(DEVICE)
+                print("✅ Loaded refiner")
+            else:
+                refiner = None
+                print("⚠️ Refiner is disabled")
+
+
             refiner_inpaint = None
             """ refiner_inpaint = StableDiffusionXLInpaintPipeline.from_pretrained(
                 SD_MODELS[key]["refiner_id"],
@@ -211,10 +232,22 @@ def setup() -> ModelsPack:
                 add_watermarker=False,
             ) """
             text2img = text2img.to(DEVICE)
-            refiner = refiner.to(DEVICE)
+
             """ refiner_inpaint = refiner_inpaint.to(DEVICE) """
-            img2img = StableDiffusionXLImg2ImgPipeline(**text2img.components)
-            inpaint = StableDiffusionXLInpaintPipeline(**text2img.components)
+            if LOAD_IMG2IMG != "0":
+                img2img = StableDiffusionXLImg2ImgPipeline(**text2img.components)
+                print(f"✅ Loaded {key} img2img")
+            else:
+                img2img = None
+                print("⚠️ Img2img is disabled")
+
+            if LOAD_IMPAINTING != "0":
+                inpaint = StableDiffusionXLInpaintPipeline(**text2img.components)
+                print(f"✅ Loaded { key } inpainting")
+            else:
+                inpaint = None
+                print("⚠️ Inpainting is disabled")
+
             pipe = SDPipe(
                 text2img=text2img,
                 img2img=img2img,
@@ -258,8 +291,8 @@ def setup() -> ModelsPack:
     if SHOULD_LOAD_KANDINSKY_SAFETY_CHECKER == "1":
         print("⏳ Loading safety checker")
         safety_pipe = StableDiffusionPipeline.from_pretrained(
-            SD_MODELS[SD_MODEL_FOR_SAFETY_CHECKER]["id"],
-            torch_dtype=SD_MODELS[key]["torch_dtype"],
+            SD_MODELS_ALL[SD_MODEL_FOR_SAFETY_CHECKER]["id"],
+            torch_dtype=SD_MODELS_ALL[key]["torch_dtype"],
             cache_dir=SD_MODEL_CACHE,
         )
         safety_pipe = safety_pipe.to(DEVICE)
@@ -327,45 +360,57 @@ def setup() -> ModelsPack:
         )
         print(f"✅ Loaded Kandinsky 2.2 | Duration: {round(time.time() - s, 1)} seconds")
 
-    # For upscaler
-    upscaler_args = get_args_swinir()
-    upscaler_args.task = TASKS_SWINIR["Real-World Image Super-Resolution-Large"]
-    upscaler_args.scale = 4
-    upscaler_args.model_path = MODELS_SWINIR["real_sr"]["large"]
-    upscaler_args.large_model = True
-    upscaler_pipe = define_model_swinir(upscaler_args)
-    upscaler_pipe.eval()
-    upscaler_pipe = upscaler_pipe.to(DEVICE_SWINIR)
-    upscaler = {
-        "pipe": upscaler_pipe,
-        "args": upscaler_args,
-    }
-    print("✅ Loaded upscaler")
 
-    # For translator
-    translator = {
-        "detector": (
-            LanguageDetectorBuilder.from_all_languages()
-            .with_preloaded_language_models()
-            .build()
-        ),
-    }
-    print("✅ Loaded translator")
+    if LOAD_UPSCALER != "0":
+        upscaler_args = get_args_swinir()
+        upscaler_args.task = TASKS_SWINIR["Real-World Image Super-Resolution-Large"]
+        upscaler_args.scale = 4
+        upscaler_args.model_path = MODELS_SWINIR["real_sr"]["large"]
+        upscaler_args.large_model = True
+        upscaler_pipe = define_model_swinir(upscaler_args)
+        upscaler_pipe.eval()
+        upscaler_pipe = upscaler_pipe.to(DEVICE_SWINIR)
+        upscaler = {
+            "pipe": upscaler_pipe,
+            "args": upscaler_args,
+        }
+        print("✅ Loaded upscaler")
+    else:
+        upscaler = { "pipe": None, "args": None}
+        print("⚠️ Upscaler is disabled")
 
-    # For OpenCLIP
-    print("⏳ Loading OpenCLIP")
-    open_clip = {
-        "model": AutoModel.from_pretrained(
-            OPEN_CLIP_MODEL_ID, cache_dir=TRANSLATOR_CACHE
-        ).to(DEVICE),
-        "processor": AutoProcessor.from_pretrained(
-            OPEN_CLIP_MODEL_ID, cache_dir=TRANSLATOR_CACHE
-        ),
-        "tokenizer": AutoTokenizer.from_pretrained(
-            OPEN_CLIP_MODEL_ID, cache_dir=TRANSLATOR_CACHE
-        ),
-    }
-    print("✅ Loaded OpenCLIP")
+
+    if LOAD_TRANSLATOR != "0":
+        translator = {
+            "detector": (
+                LanguageDetectorBuilder.from_all_languages()
+                .with_preloaded_language_models()
+                .build()
+            ),
+        }
+        print("✅ Loaded translator")
+    else:
+        translator = None
+        print("⚠️ Translator is disabled")
+
+
+    if LOAD_OPENCLIP != "0":
+        print("⏳ Loading OpenCLIP")
+        open_clip = {
+            "model": AutoModel.from_pretrained(
+                OPEN_CLIP_MODEL_ID, cache_dir=TRANSLATOR_CACHE
+            ).to(DEVICE),
+            "processor": AutoProcessor.from_pretrained(
+                OPEN_CLIP_MODEL_ID, cache_dir=TRANSLATOR_CACHE
+            ),
+            "tokenizer": AutoTokenizer.from_pretrained(
+                OPEN_CLIP_MODEL_ID, cache_dir=TRANSLATOR_CACHE
+            ),
+        }
+        print("✅ Loaded OpenCLIP")
+    else:
+        open_clip = None
+        print("⚠️ OpenCLIP is disabled")
 
     end = time.time()
     print("//////////////////////////////////////////////////////////////////")
