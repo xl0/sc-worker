@@ -29,6 +29,6 @@ class RabbitMQConnection:
             try:
                 self.connect()
                 return
-            except pika.exceptions.AMQPConnectionError:
+            except Exception:
                 logging.error(f"Connection to RabbitMQ failed. Retrying in {retry_interval} seconds.")
                 time.sleep(retry_interval)
