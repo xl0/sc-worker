@@ -129,7 +129,7 @@ jobs:
             ${{secrets.DOCKERHUB_SC_WORKER_REPO}}:latest
 
       - name: Cleanup Docker Junk
-        if: success()
+        if: success() 
         run: |
           docker rmi -f $(docker images -q ${{secrets.DOCKERHUB_SC_WORKER_REPO}}) || true
           docker system prune -f || true
